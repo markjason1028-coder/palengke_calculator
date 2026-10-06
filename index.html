@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#176b3a">
+<title>Palengke Calculator</title>
+<style>
+:root{--green:#176b3a;--green2:#eaf5ee;--bg:#f4f6f2;--card:#fff;--text:#1e251f;--muted:#70776f;--line:#e1e5df;--red:#b42318;--yellow:#fff4cf}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+.app{width:min(100%,460px);min-height:100vh;margin:auto;padding:18px 16px 36px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.brand{font-size:21px;font-weight:800}.tag{font-size:12px;color:var(--muted);margin-top:2px}
+.card{background:var(--card);border-radius:20px;padding:17px;margin:0 0 13px;box-shadow:0 3px 16px rgba(0,0,0,.06)}
+.label,.meta{font-size:12px;color:var(--muted)}.amount{font-size:34px;font-weight:850;line-height:1.1;margin:4px 0 10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stat{border-top:1px solid var(--line);padding-top:9px}.stat b{font-size:17px}.remaining{color:var(--green)}.over{color:var(--red)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px}button{border:0;border-radius:14px;padding:14px 12px;font-size:15px;font-weight:750;cursor:pointer}.primary{background:var(--green);color:#fff}.secondary{background:var(--green2);color:var(--green)}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}.section-head strong{font-size:16px}
+.item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:13px 0;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}
+.item-name{font-weight:750}.item-meta{font-size:12px;color:var(--muted);margin-top:3px}.item-total{font-weight:800;text-align:right}.remove{padding:4px 0;background:transparent;color:var(--red);font-size:12px}
+.totalrow{display:flex;justify-content:space-between;align-items:end}.total{font-size:28px;font-weight:850}
+.note{margin-top:11px;padding:10px 12px;border-radius:12px;background:var(--yellow);font-size:12px;color:#6a5500}.empty{padding:18px 0;color:var(--muted);font-size:13px;text-align:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;padding:10px;z-index:10}.modal.hidden{display:none}
+.sheet{width:min(460px,100%);background:#fff;border-radius:22px;padding:19px;max-height:92vh;overflow:auto}.sheet h2{margin:0 0 12px;font-size:20px}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px}input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.close{width:100%;margin-top:9px;background:#eee;color:#333}.scanbox{background:#f0f3ef;border-radius:14px;padding:15px;margin-bottom:10px;text-align:center}
+.camera{width:100%;border-radius:14px;background:#111;display:none;aspect-ratio:4/3;object-fit:cover}.scanhint{font-size:12px;color:var(--muted);margin:8px 0}
+.smallbtn{padding:10px 12px;font-size:13px}
+footer{text-align:center;color:var(--muted);font-size:11px;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><div class="brand">🛒 Palengke Calculator</div><div class="tag">Scan. Add. Calculate.</div></div>
+  <div aria-hidden="true">₱</div>
+</header>
+
+<section class="card">
+  <div class="label">MY SHOPPING BUDGET</div>
+  <div class="amount" id="budget">₱1,000.00</div>
+  <div class="stats">
+    <div class="stat"><div class="label">Spent</div><b id="spent">₱0.00</b></div>
+    <div class="stat"><div class="label">Remaining</div><b id="remaining" class="remaining">₱1,000.00</b></div>
+  </div>
+  <button class="secondary smallbtn" style="margin-top:12px;width:100%" onclick="openBudget()">Set / Change Budget</button>
+</section>
+
+<div class="actions">
+  <button class="primary" onclick="openScan()">📷 Scan Price</button>
+  <button class="secondary" onclick="openItem()">＋ Add Item</button>
+</div>
+
+<section class="card">
+  <div class="section-head"><strong>My Shopping List</strong><span class="meta" id="count">0 items</span></div>
+  <div id="list" class="empty">No items yet.<br>Scan a price or add one manually.</div>
+</section>
+
+<section class="card">
+  <div class="totalrow"><div><div class="label">ESTIMATED TOTAL</div><div class="total" id="total">₱0.00</div></div></div>
+  <div id="warning"></div>
+</section>
+
+<button id="clearBtn" class="close" style="width:100%" onclick="clearCart()" disabled>Clear Shopping List</button>
+<footer>Prototype • Basic calculator works offline in your browser</footer>
+</div>
+
+<div class="modal hidden" id="modal">
+ <div class="sheet">
+  <h2 id="title">Add Item</h2>
+  <div id="cameraBox" class="scanbox hidden">
+    <video id="video" class="camera" playsinline></video>
+    <div id="cameraMessage">Point the camera at a price tag.</div>
+    <div class="scanhint">Prototype scanner: camera capture is ready, but automatic OCR is intentionally not included yet.</div>
+    <button class="secondary smallbtn" onclick="capturePhoto()">📸 Capture Price Tag</button>
+    <canvas id="canvas" style="display:none"></canvas>
+  </div>
+  <label>Item name</label><input id="name" placeholder="e.g. Pork">
+  <div class="grid2">
+    <div><label>Price (₱)</label><input id="price" type="number" step="0.01" inputmode="decimal" placeholder="320"></div>
+    <div><label>Quantity</label><input id="qty" type="number" step="0.01" inputmode="decimal" value="1"></div>
+  </div>
+  <label>Unit</label>
+  <select id="unit"><option>piece</option><option>kg</option><option>gram</option><option>bundle</option><option>pack</option><option>bottle</option><option>liter</option><option>other</option></select>
+  <button class="primary" style="width:100%;margin-top:14px" onclick="saveItem()">Add to Shopping List</button>
+  <button class="close" onclick="closeModal()">Cancel</button>
+ </div>
+</div>
+
+<script>
+let budget=Number(localStorage.getItem('pc_budget')||1000);
+let items=JSON.parse(localStorage.getItem('pc_items')||'[]');
+let stream=null;
+
+const money=n=>new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(n)||0);
+const $=id=>document.getElementById(id);
+
+function save(){localStorage.setItem('pc_budget',budget);localStorage.setItem('pc_items',JSON.stringify(items));}
+function render(){
+ const total=items.reduce((s,i)=>s+i.price*i.qty,0), rem=budget-total;
+ $('budget').textContent=money(budget);$('spent').textContent=money(total);$('remaining').textContent=money(rem);
+ $('remaining').className=rem<0?'over':'remaining';$('total').textContent=money(total);
+ $('count').textContent=`${items.length} item${items.length===1?'':'s'}`;
+ $('clearBtn').disabled=!items.length;
+ $('list').className=items.length?'':'empty';
+ $('list').innerHTML=items.length?items.map((i,n)=>`
+  <div class="item">
+   <div><div class="item-name">${esc(i.name)}</div><div class="item-meta">${money(i.price)} / ${esc(i.unit)} × ${i.qty}</div></div>
+   <div><div class="item-total">${money(i.price*i.qty)}</div><button class="remove" onclick="removeItem(${n})">Remove</button></div>
+  </div>`).join(''):'No items yet.<br>Scan a price or add one manually.';
+ $('warning').innerHTML=rem<0?`<div class="note">⚠️ You are over budget by <b>${money(-rem)}</b>.</div>`:'';
+ save();
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+function openModal(title){$('title').textContent=title;$('modal').classList.remove('hidden');}
+function openItem(){stopCamera();$('cameraBox').classList.add('hidden');clearFields();openModal('＋ Add Item');$('name').focus();}
+async function openScan(){
+ clearFields();$('cameraBox').classList.remove('hidden');openModal('📷 Scan Price');
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+  $('video').srcObject=stream;$('video').style.display='block';$('cameraMessage').textContent='Camera ready. Point it at the price tag.';
+  await $('video').play();
+ }catch(e){$('cameraMessage').textContent='Camera unavailable. You can still enter the price below.';}
+}
+function capturePhoto(){
+ const v=$('video'), c=$('canvas');
+ if(!v.videoWidth){alert('Camera is not ready. Please enter the price manually.');return}
+ c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+ $('cameraMessage').textContent='Photo captured. Enter/confirm the price below.';
+ $('price').focus();
+}
+function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}if($('video'))$('video').srcObject=null}
+function closeModal(){stopCamera();$('modal').classList.add('hidden');}
+function clearFields(){$('name').value='';$('price').value='';$('qty').value='1';$('unit').value='piece';}
+function saveItem(){
+ const name=$('name').value.trim()||'Item', price=Number($('price').value), qty=Number($('qty').value)||1, unit=$('unit').value;
+ if(!Number.isFinite(price)||price<0){alert('Please enter a valid price.');$('price').focus();return}
+ if(qty<=0){alert('Quantity must be greater than zero.');return}
+ items.push({name,price,qty,unit});closeModal();render();
+}
+function removeItem(i){items.splice(i,1);render();}
+function clearCart(){if(confirm('Clear the entire shopping list?')){items=[];render();}}
+function openBudget(){
+ const v=prompt('Set your shopping budget in Philippine pesos:',budget);
+ if(v===null)return;const n=Number(v);if(!Number.isFinite(n)||n<0){alert('Please enter a valid budget.');return}
+ budget=n;render();
+}
+render();
+</script>
+</body>
+</html>
